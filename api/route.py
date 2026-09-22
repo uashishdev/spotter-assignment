@@ -19,12 +19,15 @@ COORD_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$")
 
 
 class PlanError(Exception):
+    """Something we can tell the caller: bad input (400) or the map service failed (502)."""
+
     def __init__(self, message, status=400):
         super().__init__(message)
         self.status = status
 
 
 def _get_json(url, timeout=15):
+    """GET a URL and parse JSON. Network problems become a 502."""
     req = Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urlopen(req, timeout=timeout) as resp:
@@ -36,6 +39,7 @@ def _get_json(url, timeout=15):
 
 
 def haversine_miles(lat1, lng1, lat2, lng2):
+    """Straight-line miles between two points. Not driving distance."""
     r = 3958.7613
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -45,6 +49,7 @@ def haversine_miles(lat1, lng1, lat2, lng2):
 
 
 def parse_point(text):
+    """'lat,lng' stays local. A place name goes to Photon."""
     m = COORD_RE.match(text)
     if m:
         lat, lng = float(m.group(1)), float(m.group(2))
@@ -60,6 +65,7 @@ def parse_point(text):
 
 
 def osrm_route(lat1, lng1, lat2, lng2):
+    """One OSRM call: the road line and the driving distance in meters."""
     url = OSRM_URL.format(lat1=lat1, lng1=lng1, lat2=lat2, lng2=lng2)
     data = _get_json(url)
     if data.get("code") != "Ok" or not data.get("routes"):
@@ -72,6 +78,7 @@ def osrm_route(lat1, lng1, lat2, lng2):
 
 
 def sample_route(coords, sample_miles=SAMPLE_MILES):
+    """Thin the road line down to a point about every 2 miles."""
     if not coords:
         return [], 0.0
     last_lat, last_lng = coords[0][1], coords[0][0]
@@ -98,6 +105,7 @@ def sample_route(coords, sample_miles=SAMPLE_MILES):
 
 
 def corridor_stations(stations, samples, total_miles, corridor=CORRIDOR_MILES):
+    """Keep pumps within ~10 miles of the road and note the mile marker."""
     lats = [s[0] for s in samples]
     lngs = [s[1] for s in samples]
     pad = corridor / 69.0
@@ -123,6 +131,7 @@ def corridor_stations(stations, samples, total_miles, corridor=CORRIDOR_MILES):
 
 
 def greedy_stops(stations, total_miles, tank=RANGE_MILES):
+    """Cheapest station you can still reach before the tank runs out. Repeat until the finish is in range."""
     pos = 0.0
     remaining = tank
     stops = []
@@ -141,6 +150,7 @@ def greedy_stops(stations, total_miles, tank=RANGE_MILES):
 
 
 def fill_costs(stops, total_miles, tank=RANGE_MILES, mpg=MPG):
+    """Buy only enough to reach the next cheaper stop, or the finish. Skip a stop if you don't need fuel there."""
     pos = 0.0
     fuel = tank
     cost = 0.0
@@ -171,6 +181,7 @@ def fill_costs(stops, total_miles, tank=RANGE_MILES, mpg=MPG):
 
 
 def plan_route(start, finish):
+    """Start and finish in, route plus fuel stops and cost out."""
     slat, slng = parse_point(start)
     flat, flng = parse_point(finish)
     geometry, meters = osrm_route(slat, slng, flat, flng)

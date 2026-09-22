@@ -6,11 +6,15 @@ from api.route import PlanError, plan_route
 
 
 class RouteRequestSerializer(serializers.Serializer):
+    """Both fields are required strings: a place name or 'lat,lng'."""
+
     start = serializers.CharField()
     finish = serializers.CharField()
 
 
 class RouteView(APIView):
+    """GET shows the form. POST plans the route."""
+
     def get(self, request):
         return Response({"detail": "POST JSON {\"start\": \"lat,lng\", \"finish\": \"lat,lng\"}."})
 

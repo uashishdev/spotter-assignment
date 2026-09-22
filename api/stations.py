@@ -8,10 +8,12 @@ _HEADER = re.compile(r"[^a-z0-9]+")
 
 
 def _norm(header):
+    """Lowercase a CSV header so 'Retail Price' and 'lat' match the same way."""
     return _HEADER.sub(" ", header.strip().lower()).strip()
 
 
 def _detect(fieldnames):
+    """Find the name, lat, lng, and price columns. Names vary by file."""
     cols = {_norm(h): h for h in fieldnames}
     lat = cols.get("lat") or cols.get("latitude")
     lng = cols.get("lng") or cols.get("lon") or cols.get("long") or cols.get("longitude")
@@ -25,6 +27,7 @@ def _detect(fieldnames):
 
 @lru_cache(maxsize=1)
 def load_stations():
+    """Read the fuel CSV once and keep it in memory. Same truck-stop id keeps the cheaper price."""
     path = settings.FUEL_PRICES_CSV
     with open(path, newline="", encoding="utf-8", errors="replace") as f:
         reader = csv.DictReader(f)
